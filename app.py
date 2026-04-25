@@ -78,17 +78,12 @@ skill_options = [
 # 🏠 PAGE 1
 # =====================================================
 if st.session_state.page == "home":
-
     st.title("🎯 SkillScope — Candidate Profile")
-
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("### 📄 Resume")
-
         resume_text = ""
         uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "txt"])
-
         if uploaded_file is not None:
             if uploaded_file.type == "application/pdf":
                 import PyPDF2
@@ -97,9 +92,7 @@ if st.session_state.page == "home":
                     resume_text += p.extract_text()
             else:
                 resume_text = uploaded_file.read().decode("utf-8")
-
         jd = st.text_area("Job Description", height=150)
-
         # -------- ANALYZE --------
         if st.button("🔍 Analyze Resume & JD"):
             if resume_text and jd:
@@ -190,10 +183,13 @@ if st.session_state.page == "home":
             for s in st.session_state.selected_preferred
         ]), unsafe_allow_html=True)
 
-    if st.button("🚀 Start Assessment"):
-        if not st.session_state.selected_required:
-            st.warning("Select skills first")
-        else:
+        ready = resume_text and jd.strip() and st.session_state.selected_required
+
+    if not ready:
+        st.button("🚀 Start Assessment", disabled=True)
+        st.warning("⚠️ Please upload resume, enter job description, and select at least one skill.")
+    else:
+        if st.button("🚀 Start Assessment"):
             st.session_state.settings = {
                 "domain": domain,
                 "seniority": seniority,
@@ -203,7 +199,6 @@ if st.session_state.page == "home":
             }
             st.session_state.page = "assessment"
             st.rerun()
-
 # =====================================================
 # 🧠 PAGE 2
 # =====================================================
@@ -307,7 +302,8 @@ elif st.session_state.page == "results":
     labels = list(scores.keys())
     values = [scores[s]["score"] for s in labels]
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(4, 4))
+    fig.tight_layout()
 
     filtered_labels = [l for l, v in zip(labels, values) if v > 0]
     filtered_values = [v for v in values if v > 0]
