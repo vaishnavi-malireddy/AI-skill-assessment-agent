@@ -30,86 +30,33 @@ def ask_llm(prompt):
 
 # ---------------- SKILLS ----------------
 skill_options = [
-    # A
-    "AWS", "Azure", "Agile Methodology", "API Development", "Android Development",
-
-    # B
-    "Big Data", "Business Analysis", "Backend Development", "Blockchain",
-
-    # C
-    "C", "C++", "C#", "Cloud Computing", "Cybersecurity", "Computer Vision",
-
-    # D
-    "Data Science", "Data Analysis", "Deep Learning", "Django", "Docker", "DevOps",
-
-    # E
-    "ETL Pipelines", "Embedded Systems", "Enterprise Architecture",
-
-    # F
-    "Flask", "Frontend Development", "Firebase", "Feature Engineering",
-
-    # G
-    "Git", "GCP (Google Cloud Platform)", "GraphQL",
-
-    # H
-    "HTML", "Hadoop", "Human-Computer Interaction",
-
-    # I
-    "IoT (Internet of Things)", "Information Security", "iOS Development",
-
-    # J
-    "Java", "JavaScript", "Jenkins", "Jupyter Notebook",
-
-    # K
-    "Kubernetes", "Kotlin",
-
-    # L
-    "Linux", "Log Analysis", "Linear Algebra",
-
-    # M
-    "Machine Learning", "Microservices", "MongoDB", "MySQL",
-
-    # N
-    "Node.js", "NLP (Natural Language Processing)", "Network Security",
-
-    # O
-    "Object-Oriented Programming", "OpenCV", "Operating Systems",
-
-    # P
-    "Python", "PHP", "Playwright",
+    "AWS","Azure","Agile Methodology","API Development","Android Development",
+    "Big Data","Business Analysis","Backend Development","Blockchain",
+    "C","C++","C#","Cloud Computing","Cybersecurity","Computer Vision",
+    "Data Science","Data Analysis","Deep Learning","Django","Docker","DevOps",
+    "ETL Pipelines","Embedded Systems","Enterprise Architecture",
+    "Flask","Frontend Development","Firebase","Feature Engineering",
+    "Git","GCP (Google Cloud Platform)","GraphQL",
+    "HTML","Hadoop","Human-Computer Interaction",
+    "IoT (Internet of Things)","Information Security","iOS Development",
+    "Java","JavaScript","Jenkins","Jupyter Notebook",
+    "Kubernetes","Kotlin",
+    "Linux","Log Analysis","Linear Algebra",
+    "Machine Learning","Microservices","MongoDB","MySQL",
+    "Node.js","NLP (Natural Language Processing)","Network Security",
+    "Object-Oriented Programming","OpenCV","Operating Systems",
+    "Python","PHP","Playwright",
     "Prompt Engineering – Prompt Optimization",
     "Prompt Engineering Fundamentals – Prompt Design Techniques",
     "Programming & Infrastructure – Config & Experiment Management",
-
-    # Q
-    "Quality Assurance", "Quantitative Analysis",
-
-    # R
-    "React", "REST APIs", "Reinforcement Learning", "R Programming",
-
-    # S
-    "SQL", "Spring Boot", "Software Engineering", "System Design", "Scikit-learn",
-
-    # T
-    "TensorFlow", "TypeScript", "Testing & Debugging",
-
-    # U
-    "UI/UX Design", "Unix",
-
-    # V
-    "Version Control", "Vue.js",
-
-    # W
-    "Web Development", "Web Security",
-
-    # X
-    "XGBoost",
-
-    # Y
-    "YAML",
-
-    # Z
-    "Zero Trust Security"
+    "Quality Assurance","Quantitative Analysis",
+    "React","REST APIs","Reinforcement Learning","R Programming",
+    "SQL","Spring Boot","Software Engineering","System Design","Scikit-learn",
+    "TensorFlow","TypeScript","Testing & Debugging",
+    "UI/UX Design","Unix",
+    "Version Control","Vue.js",
+    "Web Development","Web Security",
+    "XGBoost","YAML","Zero Trust Security"
 ]
 
 # =====================================================
@@ -125,17 +72,20 @@ if st.session_state.page == "home":
     # ---------- LEFT ----------
     with col1:
 
-        # RESUME (ONE SECTION)
+        # ✅ FIXED RESUME BLOCK (SINGLE CLEAN SECTION)
         st.markdown("### 📄 Resume")
 
         resume_text = ""
 
         uploaded_file = st.file_uploader(
-            "Upload Resume (PDF/TXT) OR paste below",
+            "Upload Resume (PDF/TXT)",
             type=["pdf", "txt"]
         )
 
-        resume_manual = st.text_area("Paste Resume (optional)")
+        resume_manual = st.text_area(
+            "Or paste your resume here",
+            height=200
+        )
 
         if uploaded_file is not None:
             if uploaded_file.type == "application/pdf":
@@ -155,7 +105,15 @@ if st.session_state.page == "home":
 
         req_input = st.text_input("Search skills", key="req")
 
-        filtered_req = [s for s in skill_options if req_input.lower() in s.lower()]
+        filtered_req = []
+
+        if req_input:
+            filtered_req = [
+                s for s in skill_options
+                if s.lower().startswith(req_input.lower())
+            ]
+        else:
+            st.info("💡 Start typing to see skill suggestions")
 
         if "selected_required" not in st.session_state:
             st.session_state.selected_required = []
@@ -165,7 +123,6 @@ if st.session_state.page == "home":
                 if skill not in st.session_state.selected_required:
                     st.session_state.selected_required.append(skill)
 
-        # SHOW TAGS
         if st.session_state.selected_required:
             tags = " ".join([
                 f"<span style='background:#E8F0FE;padding:6px 10px;border-radius:15px;margin:5px;display:inline-block;'>{s}</span>"
@@ -179,9 +136,7 @@ if st.session_state.page == "home":
         projects = st.text_area("Projects")
 
         seniority = st.selectbox("Seniority", ["Beginner", "Intermediate", "Advanced"])
-
         domain = st.text_input("Domain Context")
-
         proficiency = st.selectbox("Expected Proficiency", ["Low", "Medium", "High"])
 
         # ---------- PREFERRED ----------
@@ -189,7 +144,15 @@ if st.session_state.page == "home":
 
         pref_input = st.text_input("Search preferred skills", key="pref")
 
-        filtered_pref = [s for s in skill_options if pref_input.lower() in s.lower()]
+        filtered_pref = []
+
+        if pref_input:
+            filtered_pref = [
+                s for s in skill_options
+                if s.lower().startswith(pref_input.lower())
+            ]
+        else:
+            st.info("💡 Start typing to see preferred skills")
 
         if "selected_preferred" not in st.session_state:
             st.session_state.selected_preferred = []
@@ -221,7 +184,6 @@ if st.session_state.page == "home":
         }
 
         st.success("✅ Details Submitted!")
-
         st.subheader("📌 Preview")
         st.json(st.session_state.data)
 
