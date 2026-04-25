@@ -1,11 +1,9 @@
 import streamlit as st
-import os
-from dotenv import load_dotenv
 from openai import OpenAI
+import json
 
-# Load API key
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Load API key from Streamlit secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.set_page_config(page_title="AI Skill Assessment Agent", layout="wide")
 
@@ -54,9 +52,8 @@ if st.button(" Start Assessment") and resume and jd:
         result = ask_llm(prompt)
 
         try:
-            import json
             data = json.loads(result)
-            st.session_state.skills = data["required"][:5]  # limit to 5
+            st.session_state.skills = data["required"][:5]
             st.success("Skills extracted!")
         except:
             st.error("Error parsing skills. Try again.")
@@ -91,7 +88,7 @@ if st.session_state.skills:
         if st.session_state.current_skill < len(st.session_state.skills) - 1:
             st.session_state.current_skill += 1
         else:
-            st.session_state.current_skill = -1  # Done
+            st.session_state.current_skill = -1
 
 
 # STEP 3: Evaluation
@@ -121,7 +118,6 @@ if st.session_state.current_skill == -1 and st.session_state.answers:
         result = ask_llm(eval_prompt)
 
         try:
-            import json
             data = json.loads(result)
             scores[skill] = data
         except:
