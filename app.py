@@ -2,31 +2,48 @@ import streamlit as st
 from openai import OpenAI
 import json
 import matplotlib.pyplot as plt
+import time
 
-# ---------------- API ----------------
-try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except:
-    st.error("Add API key in Streamlit secrets")
-    st.stop()
-
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="AI Skill Assessment", layout="wide")
-
-if "page" not in st.session_state:
-    st.session_state.page = "home"
-
-# ---------------- FUNCTION ----------------
+# ---------------- CLIENT ----------------
+client = OpenAI(
+    api_key=st.secrets["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
+)
+# ---------------- LLM FUNCTION ----------------
 def ask_llm(prompt):
     try:
         res = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="anthropic/claude-3-haiku",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
+            temperature=0.7
         )
-        return res.choices[0].message.content
-    except:
-        return "Error"
+        return res.choices[0].message.content.strip()
+
+    except Exception as e:
+        st.error(f"LLM Error: {e}")  # shows real issue
+
+        prompt_lower = prompt.lower()  # ✅ FIXED
+
+        # Question fallback
+        if "generate" in prompt_lower or "question" in prompt_lower:
+            return "Explain the concept with a real-world example."
+
+        # Evaluation fallback
+        elif "evaluate" in prompt_lower:
+            return json.dumps({
+                "score": 5,
+                "feedback": "Fallback evaluation"
+            })
+
+        # Plan fallback
+        elif "plan" in prompt_lower:
+            return "Week 1: Learn → Week 2: Practice → Week 3: Build → Week 4: Revise"
+
+        return "Fallback response"
+# ---------------- CONFIG ----------------
+st.set_page_config(page_title="SkillScope AI", layout="wide")
+if "page" not in st.session_state:
+    st.session_state.page = "home"
 
 # ---------------- SKILLS ----------------
 skill_options = [
@@ -36,25 +53,23 @@ skill_options = [
     "Data Science","Data Analysis","Deep Learning","Django","Docker","DevOps",
     "ETL Pipelines","Embedded Systems","Enterprise Architecture",
     "Flask","Frontend Development","Firebase","Feature Engineering",
-    "Git","GCP (Google Cloud Platform)","GraphQL",
-    "HTML","Hadoop","Human-Computer Interaction",
+    "Git","GCP (Google Cloud Platform)",
+    "HTML","Hadoop",
     "IoT (Internet of Things)","Information Security","iOS Development",
-    "Java","JavaScript","Jenkins","Jupyter Notebook",
+    "Java","JavaScript",
     "Kubernetes","Kotlin",
     "Linux","Log Analysis","Linear Algebra",
     "Machine Learning","Microservices","MongoDB","MySQL",
     "Node.js","NLP (Natural Language Processing)","Network Security",
     "Object-Oriented Programming","OpenCV","Operating Systems",
-    "Python","PHP","Playwright",
-    "Prompt Engineering – Prompt Optimization",
-    "Prompt Engineering Fundamentals – Prompt Design Techniques",
+    "Python","PHP",
     "Programming & Infrastructure – Config & Experiment Management",
     "Quality Assurance","Quantitative Analysis",
     "React","REST APIs","Reinforcement Learning","R Programming",
     "SQL","Spring Boot","Software Engineering","System Design","Scikit-learn",
-    "TensorFlow","TypeScript","Testing & Debugging",
+    "TensorFlow","Testing & Debugging",
     "UI/UX Design","Unix",
-    "Version Control","Vue.js",
+    "Version Control",
     "Web Development","Web Security",
     "XGBoost","YAML","Zero Trust Security"
 ]
@@ -64,170 +79,195 @@ skill_options = [
 # =====================================================
 if st.session_state.page == "home":
 
-    st.title("📋 Candidate Skill Assessment")
-    st.markdown("### Enter Candidate Details")
+    st.title("🎯 SkillScope — Candidate Profile")
 
     col1, col2 = st.columns(2)
 
-    # ---------- LEFT ----------
     with col1:
-
-        # ✅ FIXED RESUME BLOCK (SINGLE CLEAN SECTION)
         st.markdown("### 📄 Resume")
 
         resume_text = ""
-
-        uploaded_file = st.file_uploader(
-            "Upload Resume (PDF/TXT)",
-            type=["pdf", "txt"]
-        )
-
-        resume_manual = st.text_area(
-            "Or paste your resume here",
-            height=200
-        )
+        uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "txt"])
 
         if uploaded_file is not None:
             if uploaded_file.type == "application/pdf":
                 import PyPDF2
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                for page in pdf_reader.pages:
-                    resume_text += page.extract_text()
+                pdf = PyPDF2.PdfReader(uploaded_file)
+                for p in pdf.pages:
+                    resume_text += p.extract_text()
             else:
                 resume_text = uploaded_file.read().decode("utf-8")
 
-        resume = resume_text if resume_text else resume_manual
+        jd = st.text_area("Job Description", height=150)
 
-        jd = st.text_area("Job Description")
+        # -------- ANALYZE --------
+        if st.button("🔍 Analyze Resume & JD"):
+            if resume_text and jd:
+                with st.spinner("Analyzing..."):
+                    resume_skills = ask_llm(f"""
+                    Extract key technical skills from this resume.
+                    Return ONLY a comma-separated list.
+                    Resume:
+                    {resume_text}
+                    """)
 
-        # ---------- REQUIRED SKILLS ----------
+                    jd_skills = ask_llm(f"""
+                    Extract required skills from this job description.
+                    Return ONLY a comma-separated list.
+                    Job Description:
+                    {jd}
+                    """)
+
+                resume_skills = [s.strip() for s in resume_skills.split(",")]
+                jd_skills = [s.strip() for s in jd_skills.split(",")]
+
+                st.session_state.resume_skills = resume_skills
+                st.session_state.jd_skills = jd_skills
+
+                st.success("Analysis complete!")
+
+        # -------- MATCH ANALYSIS --------
+        if "resume_skills" in st.session_state and "jd_skills" in st.session_state:
+
+            st.subheader("📌 Skill Match Analysis")
+
+            resume_skills = st.session_state.resume_skills
+            jd_skills = st.session_state.jd_skills
+
+            matched = list(set(resume_skills) & set(jd_skills))
+            missing = list(set(jd_skills) - set(resume_skills))
+
+            st.write("✅ Matching Skills:", matched)
+            st.write("❌ Missing Skills:", missing)
+
+            if st.button("⚡ Use JD Skills for Assessment"):
+                st.session_state.selected_required = jd_skills
+                st.success("JD skills added for assessment ✅")
         st.markdown("### 🎯 Required Skills")
-
-        req_input = st.text_input("Search skills", key="req")
-
-        filtered_req = []
-
-        if req_input:
-            filtered_req = [
-                s for s in skill_options
-                if s.lower().startswith(req_input.lower())
-            ]
-        else:
-            st.info("💡 Start typing to see skill suggestions")
+        query = st.text_input("Search skills")
 
         if "selected_required" not in st.session_state:
             st.session_state.selected_required = []
 
-        for skill in filtered_req:
-            if st.button(f"➕ {skill}", key=f"req_{skill}"):
-                if skill not in st.session_state.selected_required:
-                    st.session_state.selected_required.append(skill)
+        if query:
+            for s in skill_options:
+                if s.lower().startswith(query.lower()):
+                    if st.button(f"➕ {s}", key=s):
+                        if s not in st.session_state.selected_required:
+                            st.session_state.selected_required.append(s)
 
-        if st.session_state.selected_required:
-            tags = " ".join([
-                f"<span style='background:#E8F0FE;padding:6px 10px;border-radius:15px;margin:5px;display:inline-block;'>{s}</span>"
-                for s in st.session_state.selected_required
-            ])
-            st.markdown(tags, unsafe_allow_html=True)
+        st.markdown(" ".join([
+            f"<span style='background:#E8F0FE;padding:6px;border-radius:12px;margin:3px'>{s}</span>"
+            for s in st.session_state.selected_required
+        ]), unsafe_allow_html=True)
 
-    # ---------- RIGHT ----------
     with col2:
-
         projects = st.text_area("Projects")
+        seniority = st.selectbox("Seniority", ["Beginner","Intermediate","Advanced"])
+        domain = st.selectbox("Domain", ["Software Engineer","Data Scientist","AI Engineer","Other"])
 
-        seniority = st.selectbox("Seniority", ["Beginner", "Intermediate", "Advanced"])
-        domain = st.text_input("Domain Context")
-        proficiency = st.selectbox("Expected Proficiency", ["Low", "Medium", "High"])
+        if domain == "Other":
+            domain = st.text_input("Enter your domain")
 
-        # ---------- PREFERRED ----------
+        proficiency = st.selectbox("Expected Proficiency", ["Low","Medium","High"])
+
         st.markdown("### ⭐ Preferred Skills")
 
-        pref_input = st.text_input("Search preferred skills", key="pref")
-
-        filtered_pref = []
-
-        if pref_input:
-            filtered_pref = [
-                s for s in skill_options
-                if s.lower().startswith(pref_input.lower())
-            ]
-        else:
-            st.info("💡 Start typing to see preferred skills")
+        pref_query = st.text_input("Search preferred")
 
         if "selected_preferred" not in st.session_state:
             st.session_state.selected_preferred = []
 
-        for skill in filtered_pref:
-            if st.button(f"➕ {skill}", key=f"pref_{skill}"):
-                if skill not in st.session_state.selected_preferred:
-                    st.session_state.selected_preferred.append(skill)
+        if pref_query:
+            for s in skill_options:
+                if s.lower().startswith(pref_query.lower()):
+                    if st.button(f"➕ {s}", key=f"pref_{s}"):
+                        if s not in st.session_state.selected_preferred:
+                            st.session_state.selected_preferred.append(s)
 
-        if st.session_state.selected_preferred:
-            tags = " ".join([
-                f"<span style='background:#FFF3E0;padding:6px 10px;border-radius:15px;margin:5px;display:inline-block;'>{s}</span>"
-                for s in st.session_state.selected_preferred
-            ])
-            st.markdown(tags, unsafe_allow_html=True)
+        st.markdown(" ".join([
+            f"<span style='background:#FFF3E0;padding:6px;border-radius:12px;margin:3px'>{s}</span>"
+            for s in st.session_state.selected_preferred
+        ]), unsafe_allow_html=True)
 
-    # ---------- SUBMIT ----------
-    if st.button("📩 Submit Details"):
-
-        st.session_state.data = {
-            "resume": resume,
-            "jd": jd,
-            "required_skills": st.session_state.selected_required,
-            "preferred_skills": st.session_state.selected_preferred,
-            "projects": projects,
-            "seniority": seniority,
-            "domain": domain,
-            "proficiency": proficiency
-        }
-
-        st.success("✅ Details Submitted!")
-        st.subheader("📌 Preview")
-        st.json(st.session_state.data)
-
-    # ---------- START ----------
-    if st.button("🚀 Start AI Assessment"):
-
-        if "data" not in st.session_state:
-            st.warning("⚠️ Please submit details first")
+    if st.button("🚀 Start Assessment"):
+        if not st.session_state.selected_required:
+            st.warning("Select skills first")
         else:
-            st.session_state.answers = {}
-            st.session_state.q_index = 0
+            st.session_state.settings = {
+                "domain": domain,
+                "seniority": seniority,
+                "proficiency": proficiency,
+                "difficulty": "Medium",
+                "time_limit": 900
+            }
             st.session_state.page = "assessment"
             st.rerun()
-
-    st.caption("⏱ Estimated Time: 30 minutes")
 
 # =====================================================
 # 🧠 PAGE 2
 # =====================================================
 elif st.session_state.page == "assessment":
 
-    st.title("🧠 Basic Cognitive Assessment")
+    st.title("🧠 Skill Assessment")
 
-    skills = ["Comprehension", "Logical Thinking", "Decision Making"]
+    skills = st.session_state.selected_required
+    settings = st.session_state.get("settings", {})
+    time_limit = settings.get("time_limit", 900)
 
-    current = skills[st.session_state.q_index]
+    categories = ["Comprehension","Application","Decision Making","Logical Reasoning","Scenario"]
 
-    st.progress((st.session_state.q_index + 1) / len(skills))
-    st.subheader(f"Assessing: {current}")
+    if "questions" not in st.session_state:
+        st.session_state.questions = []
+        st.session_state.answers = {}
+        st.session_state.q_index = 0
+        st.session_state.time_left = time_limit
 
-    question = ask_llm(f"Ask a beginner level question for {current}")
-    st.write("**Question:**", question)
+        for i, skill in enumerate(skills):
+            category = categories[i % len(categories)]
+
+            q = ask_llm(f"""
+            Generate a {category} question for {skill}.
+            Make it practical and scenario-based.
+            """)
+
+            st.session_state.questions.append({
+                "skill": skill,
+                "question": q,
+                "category": category
+            })
+
+    total = len(st.session_state.questions)
+    current = st.session_state.questions[st.session_state.q_index]
+
+    st.progress((st.session_state.q_index + 1) / total)
+
+    st.subheader(f"Skill: {current['skill']}")
+    st.write(current["question"])
 
     answer = st.text_area("Your Answer")
 
-    if st.button("Submit Answer"):
+    st.write(f"⏱️ Time left: {st.session_state.time_left}s")
 
-        st.session_state.answers[current] = answer
+    if st.button("Next"):
 
-        if st.session_state.q_index < len(skills) - 1:
+        if not answer.strip():
+            st.session_state.answers[current["skill"]] = "No answer"
+        else:
+            st.session_state.answers[current["skill"]] = answer
+
+        if st.session_state.q_index < total - 1:
             st.session_state.q_index += 1
+            st.session_state.time_left = time_limit
         else:
             st.session_state.page = "results"
 
+        st.rerun()
+
+    # Timer
+    if st.session_state.time_left > 0:
+        time.sleep(1)
+        st.session_state.time_left -= 1
         st.rerun()
 
 # =====================================================
@@ -235,51 +275,77 @@ elif st.session_state.page == "assessment":
 # =====================================================
 elif st.session_state.page == "results":
 
-    st.title("📊 Results & Learning Plan")
+    st.title("📊 Results")
 
     scores = {}
 
     for skill, ans in st.session_state.answers.items():
 
-        result = ask_llm(f"""
-        Evaluate answer:
-        {ans}
+        if ans.strip() == "" or ans.lower() == "no answer":
+            scores[skill] = {"score": 0, "feedback": "No answer"}
+            continue
 
-        Return JSON:
-        {{ "score": number, "feedback": "text" }}
+        result = ask_llm(f"""
+        Evaluate answer
+
+        Skill: {skill}
+        Answer: {ans}
+
+        Return ONLY JSON:
+        {{
+        "score": number,
+        "feedback": "text"
+        }}
         """)
 
         try:
             scores[skill] = json.loads(result)
         except:
-            scores[skill] = {"score": 5, "feedback": "Default"}
+            scores[skill] = {"score": 5, "feedback": result}
 
+    # -------- PIE CHART --------
     labels = list(scores.keys())
     values = [scores[s]["score"] for s in labels]
 
     fig, ax = plt.subplots()
-    ax.bar(labels, values)
-    ax.set_ylim(0, 10)
-    st.pyplot(fig)
 
-    st.subheader("🔍 Skill Gap")
-    gaps = [s for s, v in scores.items() if v["score"] < 6]
-    st.write(gaps)
+    filtered_labels = [l for l, v in zip(labels, values) if v > 0]
+    filtered_values = [v for v in values if v > 0]
 
+    if filtered_values:
+        ax.pie(filtered_values, labels=filtered_labels, autopct='%1.1f%%')
+        ax.set_title("Skill Score Distribution")
+        st.pyplot(fig)
+    else:
+        st.warning("No valid scores to display")
+
+    # -------- SKILL GAPS --------
+    st.subheader("🔍 Skill Gaps")
+
+    gaps = sorted(
+        [s for s in scores if scores[s]["score"] < 6],
+        key=lambda x: scores[x]["score"]
+    )
+
+    if gaps:
+        for skill in gaps:
+            st.markdown(f"- ❌ **{skill}** (Score: {scores[skill]['score']})")
+    else:
+        st.success("No major skill gaps 🎉")
+
+    # -------- LEARNING PLAN --------
     st.subheader("🧭 Learning Plan")
-
-    plan = ask_llm(f"""
-    Based on:
-    {scores}
-
-    Generate:
-    - SMART goals
-    - Weekly plan
-    - Resources
-    """)
-
-    st.write(plan)
-
-    if st.button("🔄 Restart"):
-        st.session_state.page = "home"
-        st.rerun()
+    if gaps:
+        plan = ask_llm(f"""
+        Create a structured 4-week learning plan.
+        Weak skills:
+        {gaps}
+        Also suggest:
+        - Adjacent skills the candidate can learn next
+        - Resources (courses, docs, practice)
+        - Time estimates
+        Keep it structured week-wise.
+        """)
+        st.write(plan)
+    else:
+        st.success("You're doing great! No major gaps 🎉")
