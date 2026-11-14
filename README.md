@@ -46,9 +46,9 @@ Evaluates users through 5 cognitive dimensions:
 
 ### 📊 Visual Performance Insights
 
-* Skill-wise scoring
-* Pie chart distribution
-* Clear feedback for each skill
+* Skill-wise scoring (0–10) with a colour-coded bar chart
+* Strengths and improvement points for each answer
+* Downloadable Markdown report
 
 ### 🔍 Gap Analysis Engine
 
@@ -66,12 +66,15 @@ Generates a **4-week structured plan** with:
 
 ## ⚡ How It Works
 
+```mermaid
+flowchart LR
     A[Upload Resume + JD] --> B[Skill Extraction]
     B --> C[Skill Matching]
     C --> D[Adaptive Assessment]
     D --> E[Evaluation Engine]
     E --> F[Gap Analysis]
     F --> G[4-Week Learning Plan]
+```
 
 
 ### 🧠 Behind the Scenes
@@ -90,10 +93,10 @@ Generates a **4-week structured plan** with:
 | Layer         | Technology                      |
 | ------------- | ------------------------------- |
 | Frontend      | Streamlit                       |
-| Backend       | Python 3.9+                     |
-| AI Engine     | Claude 3 Haiku (via OpenRouter) |
+| Backend       | Python 3.10+                    |
+| AI Engine     | Claude Haiku 5.5 (via OpenRouter) |
 | PDF Parsing   | PyPDF2                          |
-| Visualization | Matplotlib                      |
+| Visualization | Altair                          |
 | Deployment    | Streamlit Cloud                 |
 
 > Note: OpenRouter is used via the OpenAI-compatible SDK.
@@ -130,7 +133,12 @@ Create a `.streamlit/secrets.toml` file:
 
 ```toml
 OPENROUTER_API_KEY = "your_api_key_here"
+
+# Optional: use a different OpenRouter model (default: anthropic/claude-haiku-5.5)
+# OPENROUTER_MODEL = "anthropic/claude-sonnet-5.5"
 ```
+
+The UI theme lives in `.streamlit/config.toml`.
 
 ---
 
@@ -142,11 +150,12 @@ streamlit run app.py
 
 ### Steps:
 
-1. Upload resume (PDF/TXT)
-2. Paste job description
-3. Analyze skills
-4. Start assessment
-5. View results + learning plan
+1. Upload a resume (PDF/TXT) or paste its text
+2. Paste the job description
+3. Analyze skills to see matching and missing skills
+4. Pick the skills to assess (or use the JD skills), then start the assessment
+5. Answer one scenario-based question per skill before the timer runs out
+6. View scores, gap analysis and your 4-week learning plan
 
 ---
 
@@ -167,6 +176,7 @@ Kubernetes > CI/CD > Monitoring
 
 ### Learning Plan
 
+```
 Week 1: Docker Basics (4h)
 Week 2: Kubernetes Fundamentals (6h)
 Week 3: Hands-on Project (8h)
@@ -192,24 +202,28 @@ Week 4: Certification Prep (5h)
 ---
 ## 📂 Project Structure
 
+```
 skilloscope-ai/
 │
 ├── app.py
 ├── requirements.txt
-├── .venv
 ├── .streamlit/
-│   └── secrets.toml
+│   ├── config.toml      # UI theme
+│   └── secrets.toml     # API key (not committed)
 └── README.md
+```
 
 ## 🧪 Testing
 
 ```bash
-# Test LLM connection
-python -c "from app import ask_llm; print(ask_llm('test'))"
+# Check the app compiles
+python -m py_compile app.py
 
-# Test PDF parsing
-python test_pdf.py
+# Run it locally and walk through the flow
+streamlit run app.py
 ```
+
+If the AI steps fail, the app shows the reason (invalid key, no credits, unavailable model, rate limit).
 ---
 ## 🌐 Deployment
 
@@ -227,6 +241,8 @@ Contributions are welcome!
 git checkout -b feature/new-feature
 git commit -m "Add new feature"
 git push origin feature/new-feature
+```
+
 ## 🙌 Acknowledgements
 
 * Streamlit – UI framework

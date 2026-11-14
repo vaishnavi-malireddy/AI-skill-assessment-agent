@@ -1,7 +1,5 @@
-streamlit
+streamlit>=1.50
 openai>=1.0.0
-python-dotenv
-matplotlib
+PyPDF2
 pandas
-numpy
-pyPDF2
+altair
