@@ -16,8 +16,8 @@ from PyPDF2 import PdfReader
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="SkillScope AI", page_icon="🎯", layout="wide")
 
-DEFAULT_MODEL = "anthropic/claude-haiku-5.5"
-DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
+DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 MAX_PROMPT_CHARS = 15000
 MAX_ASSESSED_SKILLS = 10
 GAP_THRESHOLD = 6
@@ -219,7 +219,8 @@ BASE_URL = _secret("OPENROUTER_BASE_URL", DEFAULT_BASE_URL)
 
 @st.cache_resource
 def get_client(api_key, base_url):
-    return OpenAI(api_key=api_key, base_url=base_url, timeout=60, max_retries=2)
+    # Extra retries: the client waits out Groq's 429 rate-limit responses before retrying.
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=60, max_retries=4)
 
 
 def _friendly_error(e):
@@ -245,12 +246,19 @@ def ask_llm(prompt, temperature=0.4, max_tokens=1500):
     """
     if not API_KEY:
         raise LLMError("No API key configured. Add `OPENROUTER_API_KEY` to `.streamlit/secrets.toml`.")
+    extra = {}
+    if "gpt-oss" in MODEL:
+        # Reasoning models spend completion tokens thinking before they answer. Keep the
+        # thinking short and leave room for it, or the visible answer comes back empty.
+        extra = {"extra_body": {"reasoning_effort": "low"}}
+        max_tokens += 1024
     try:
         res = get_client(API_KEY, BASE_URL).chat.completions.create(
             model=MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             max_tokens=max_tokens,
+            **extra,
         )
     except Exception as e:
         raise LLMError(_friendly_error(e)) from e
@@ -275,7 +283,7 @@ def extract_json(text):
     raise LLMError("The model returned a response that couldn't be parsed. Please try again.")
 
 
-def run_parallel(fn, items, max_workers=5):
+def run_parallel(fn, items, max_workers=3):
     """Run fn over items concurrently; returns a list of (result, error_message) in order."""
     def safe(item):
         try:
